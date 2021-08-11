@@ -5,79 +5,42 @@ let http = require('http');
 let server = http.createServer(app);
 
 let socketIO = require('socket.io');
-let io = socketIO(server);
+let io = socketIO(server); 
+
+// to store user list in live chat
+var userlist = [];
 
 const port = process.env.PORT ||  3001;
 
 server.listen(port, ()=>{
-    console.log(`started on ports: ${port}`);
+    console.log(`started on the port: ${port}`);
 });
 
-io.on('connection',(socket)=>{
-    console.log('a user connected');
+io.on('connection',(socket)=>{   
+
     socket.on('join',(data) =>{
-        console.log('a user joined');
+        console.log('a user joined ');     
+        if(userlist.includes(data.user) == false) {
+            userlist.push(data.user);
+        }
+        console.log(userlist);
         socket.join(data.room);
-        socket.broadcast.to(data.room).emit('user joined');
+        io.in(data.room).emit('updatedUserList',userlist);
+        socket.broadcast.to(data.room).emit('user joined',`welcome ${data.user}`); 
         
     });
+
+
     socket.on('message', (data)=>{
         console.log(data);
-       // socket.broadcast.in(data.room).emit('new message',{user : data.user, message : data.message});
         io.in(data.room).emit('new message',{user : data.user, message : data.message});
     });
+    
+    socket.on('leave', (data) => {
+        console.log('a user left');  
+        let index = userlist.indexOf(data.user);
+        userlist.splice(index, 1);
+        console.log(userlist);
+        io.in(data.room).emit('updatedUserList',userlist);
+    })
 });
- 
-
-
-// let users = [];
-// const messages = {
-//     snakeRoomMessages:[],
-//     BlackJackRoomMessages:[],
-// }
-
-// io.on('connection', (socket)=>{
-//     socket.on('join server',(username) =>{
-//         const user = {
-//             username,
-//             id:socket.id,
-//         };
-//         users.push(user);
-//         io.emit("new user", users)
-//     });
-
-//     socket.on("join room", (roomName, cb) =>{
-//         socket.join(roomName);
-//         cb(messages[roomName]);
-//         socket.emit("joined", messages[roomName]);
-//     });
-
-//     socket.on("send message",({content,to,sender,chatName,isChannel})=>{
-//         if(isChannel){
-//             const payload = {
-//                 content,
-//                 chatName,
-//                 sender,
-//             };
-//             socket.to(to).emit("new message", payload);
-//         }else{
-//             const payload = {
-//                 content,
-//                 chatName:sender,
-//                 sender,
-//             };
-//             socket.to(to).emit("new message", payload);
-//         }
-//         if(messages[chatName]){
-//             messages[chatName].push({
-//                 sender,
-//                 content,
-//             });
-//         }
-//     });
-
-//     socket.on("disconnect",() => {
-//         users = users.filter(u =>u.id !== socket.id);
-//         io.emit("new user",users);
-//     });
-// });
